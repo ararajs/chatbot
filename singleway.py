@@ -2,12 +2,11 @@ import socket, sys
 import random
 import asyncio
 
-
 class ChatApp (object):
 
     def __init__ (self, port = 12345):
         self.socket = socket
-        self.hostname = self.socket.gethostname()
+        self.hostname = self.socket.gethostbyname(self.socket.gethostname())
         self.socket_o = self.socket.socket()
         self.port = port
         self.socket_o.bind((self.hostname, self.port))
