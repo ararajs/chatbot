@@ -1,6 +1,7 @@
 import socket
 import random
 from netifaces import interfaces, ifaddresses, AF_INET
+from multiprocessing import Process
 
 
 def host():
@@ -11,10 +12,6 @@ def host():
             return addresses
         
 host = host()
-print(host)
-
-
-    
 
 class ChatBot (object):
     def __init__ (self, host=host, send_port = 9123, receive_port = 9124):
@@ -37,62 +34,77 @@ class ChatBot (object):
 
 def setup(ChatBot: ChatBot):
     setup_input = input("For setup, do you want to act as sender (S) or receiver (R)?: ")
+
     if setup_input.lower() ==  "s":
         args = input("Enter host name and port sepearted by a space: ").strip().split()
         ChatBot.send_sock.connect((args[0], int(args[1])))
         address = ChatBot.send_sock.getpeername()
-        data_sendtime =  True
-        while data_sendtime:
-            msg = input("Message: ")
-            if msg != "Q":
-                ChatBot.send_sock.sendto(f"{msg}".encode("ascii"), address)
-            else:
-                data_sendtime = False
-
         ChatBot.rec_sock.listen(100)
+        for _ in range(2):
+            msg = input("Input: ")
+            ChatBot.send_sock.sendto(f"{msg}".encode("ascii"), address)
         check_runtime = True
         while check_runtime:
             send_sock, send_address = ChatBot.rec_sock.accept()
             if send_address:
                 check_runtime = False
-        data_runtime = True
-        while data_runtime:
-            rec_msg = send_sock.recv(4096)
-            if rec_msg:
-                print(rec_msg.decode("utf-8"))
+        return send_sock, address
 
-
-    if setup_input.lower() == "r":
+    elif setup_input.lower() == "r":
         ChatBot.rec_sock.listen(100)
         check_runtime = True
         while check_runtime:
             send_sock, send_address = ChatBot.rec_sock.accept()
             if send_address:
-                print("Connected to {send_address}")
+                print("Connected to {send_address} at {send_address}")
                 check_runtime = False
-        data_runtime = True
 
+        data_runtime = True
         output_array = []
         while data_runtime:
             rec_msg = send_sock.recv(4096)
             if rec_msg:
                 print(rec_msg.decode("utf-8"))
-                output_array.append(rec_msg.decode("utf8"))
-                print(output_array)
+                output_array.append(rec_msg.decode("utf-8"))
             if len(output_array) == 2:
                 data_runtime = False
         ChatBot.send_sock.connect((output_array[0], int(output_array[1])))
         address = ChatBot.send_sock.getpeername()
-        while True:
-            msg = input("Message : ")
-            ChatBot.send_sock.sendto(f"{msg}".encode("ascii"), address)
+        return send_sock, address
 
+def IncomingMessage(rec_sock):
+    msg = rec_sock.recv(4096)
+    if msg:
+        print(msg.decode("utf-8"))
+        return
+    else:
+        return
+
+
+def OutgoingMessage(chatbot, address):
+    msg = input("Message: ")
+    chatbot.send_sock.sendto(msg.encode("ascii"), address)
+    return
 
 
 
 if __name__ == "__main__":
     chatbot = ChatBot(host = host, send_port=random.randint(1025,10000), receive_port=random.randint(1025,10000))
-    setup(chatbot)
-    print("yay!")
+    rec_sock, rec_addr = setup(chatbot)
+    print("Connection complete, you may talk now.")
+
+    upload = Process(target = OutgoingMessage(chatbot, rec_addr))
+    download = Process(target = IncomingMessage(rec_sock))
+    download.start()
+    upload.start()
+    download.join()
+    upload.join()
+        #OutgoingMessage(chatbot, rec_addr)
+        #IncomingMessage(rec_sock)
+
+        
+        
+
+    
 
 
